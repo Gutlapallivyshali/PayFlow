@@ -1,0 +1,10 @@
+package com.payflow.enums;
+
+public enum AuditEventType {
+    PAYMENT_CREATED,
+    PAYMENT_PROCESSING_STARTED,
+    PAYMENT_SUCCEEDED,
+    PAYMENT_FAILED,
+    PAYMENT_RETRIED,
+    PAYMENT_CANCELLED
+}

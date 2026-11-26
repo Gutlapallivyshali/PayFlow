@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL 16 Relational Database Engine
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: payflow-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-payflow_db}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - payflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payflow_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - payflow-network
+
+  # ----------------------------------------------------------------------------
+  # PayFlow Spring Boot 3 Backend Service
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: payflow-backend
+    restart: on-failure
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-payflow_db}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+    ports:
+      - "8080:8080"
+    networks:
+      - payflow-network
+
+  # ----------------------------------------------------------------------------
+  # PayFlow React Vite Frontend Client
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: payflow-frontend
+    restart: on-failure
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+    networks:
+      - payflow-network
+
+volumes:
+  payflow_pgdata:
+    driver: local
+
+networks:
+  payflow-network:
+    driver: bridge
